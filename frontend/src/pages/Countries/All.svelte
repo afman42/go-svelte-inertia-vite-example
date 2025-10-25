@@ -1,18 +1,26 @@
 <script lang="ts">
-import { useForm } from "@inertiajs/svelte";
-import Layout from "../../components/Layout.svelte";
-let props: EveryFlagCountries = $props();
-const form = useForm({
-	name: "",
-	code: "",
-});
+  import { useForm } from '@inertiajs/svelte'
+  import Layout from '../../components/Layout.svelte'
+  let props: EveryFlagCountries = $props()
+  const form = useForm<NewCountryForm>({
+    name: '',
+    code: ''
+  })
 
-function submit(e: any) {
-  e.preventDefault();
-  $form.post("/countries");
-  $form.name = ""
-  $form.code = ""
-}
+  function submit(e: Event) {
+    e.preventDefault()
+    $form.post('/countries', {
+      onSuccess: () => {
+        // Form submission was successful
+        $form.name = ''
+        $form.code = ''
+      },
+      onError: (errors) => {
+        // Handle errors, maybe display them to the user
+        console.error('Form submission errors:', errors)
+      }
+    })
+  }
 </script>
 
 <Layout>
@@ -21,32 +29,39 @@ function submit(e: any) {
     <form onsubmit={submit}>
       <input
         type="text"
-        class="block mb-3 rounded-sm"
+        class="block mb-3 rounded-sm border border-gray-300 p-2"
         placeholder="Name"
         bind:value={$form.name}
       />
+      {#if $form.errors.name}
+        <div class="text-red-500 text-sm mb-3">{$form.errors.name}</div>
+      {/if}
       <input
         type="text"
-        class="block mb-3 rounded-sm"
+        class="block mb-3 rounded-sm border border-gray-300 p-2"
         placeholder="Country Code"
         maxlength="2"
         bind:value={$form.code}
       />
+      {#if $form.errors.code}
+        <div class="text-red-500 text-sm mb-3">{$form.errors.code}</div>
+      {/if}
       <button
         class="block bg-purple-600 text-white text-sm font-medium rounded-sm px-4 py-2"
         type="submit"
         disabled={$form.processing}
       >
-        Submit
+        {$form.processing ? 'Submitting...' : 'Submit'}
       </button>
     </form>
   </div>
   <div class="py-6 text-lg">
     <h4 class="font-medium">All Countries</h4>
     <ul>
-      {#each props.countries as c (c.Name)}
+      {#each props.countries as c (c.name)}
         <li>
-          {c.Flag} {c.Name}
+          {c.flag}
+          {c.name}
         </li>
       {/each}
     </ul>

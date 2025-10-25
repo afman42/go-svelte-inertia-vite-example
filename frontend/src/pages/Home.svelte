@@ -1,5 +1,6 @@
 <script lang="ts">
   import Layout from '../components/Layout.svelte'
+  let props: HomePageProps = $props();
 </script>
 
 <svelte:head>

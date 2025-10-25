@@ -1,15 +1,16 @@
 <script lang="ts">
-import { router } from "@inertiajs/svelte";
-import Layout from "../../components/Layout.svelte";
-let props: EveryFlagCountries = $props();
+  import { router } from '@inertiajs/svelte'
+  import Layout from '../../components/Layout.svelte'
+  let props: EveryFlagCountries = $props()
 </script>
 
 <Layout>
   <div class="py-6 text-lg">
     <ul>
-      {#each props.countries as c (c.Name)}
+      {#each props.countries as c (c.name)}
         <li>
-          {c.Flag} {c.Name}
+          {c.flag}
+          {c.name}
         </li>
       {/each}
     </ul>

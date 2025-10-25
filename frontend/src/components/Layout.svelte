@@ -1,7 +1,7 @@
 <script lang="ts">
 import { Link, page } from "@inertiajs/svelte"
 let props = $props();
-const url = $page.url;
+const url: string = $page.url;
 </script>
 <header class="border-b-4 border-b-purple-600">
   <div class="flex items-center py-4 container  max-w-[1280px] mx-auto space-x-8">
