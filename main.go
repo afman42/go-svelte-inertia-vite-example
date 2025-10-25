@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/afman42/go-svelte-inertia/auth"
 	"github.com/afman42/go-svelte-inertia/database"
 	"github.com/afman42/go-svelte-inertia/handlers"
 	"github.com/afman42/go-svelte-inertia/server"
@@ -47,8 +48,11 @@ func main() {
 	}
 	defer db.Conn.Close()
 
+	// Initialize session store
+	sessionStore := auth.NewSessionStore()
+
 	// Initialize handlers
-	handler := handlers.New(db, in)
+	handler := handlers.New(db, in, sessionStore)
 
 	// Initialize server
 	srv := server.New(in, handler)

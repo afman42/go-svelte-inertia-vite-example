@@ -1,7 +1,7 @@
 <script lang="ts">
   import { useForm } from '@inertiajs/svelte'
   import Layout from '../../components/Layout.svelte'
-  let props: EveryFlagCountries = $props()
+  let { countries } = $props() as { countries: Country[] }
   const form = useForm<NewCountryForm>({
     name: '',
     code: ''
@@ -9,6 +9,14 @@
 
   function submit(e: Event) {
     e.preventDefault()
+    if ($form.name.length <= 0) {
+      $form.setError('name', 'Name Still Empty')
+      return
+    }
+    if ($form.code.length <= 0) {
+      $form.setError('code', 'Code Still Empty')
+      return
+    }
     $form.post('/countries', {
       onSuccess: () => {
         // Form submission was successful
@@ -58,7 +66,7 @@
   <div class="py-6 text-lg">
     <h4 class="font-medium">All Countries</h4>
     <ul>
-      {#each props.countries as c (c.name)}
+      {#each countries as c (c.flag)}
         <li>
           {c.flag}
           {c.name}

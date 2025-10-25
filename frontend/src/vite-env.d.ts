@@ -10,8 +10,25 @@ type EveryFlagCountries = {
   countries: Country[]
 }
 
+interface RegisterFormData {
+  name: string
+  email: string
+  password: string
+  password_confirmation: string
+}
+
 interface HomePageProps {
-  user: string
+  user: User
+}
+
+interface User {
+  id: number
+  name: string
+  email: string
+}
+
+interface UserProfileProps {
+  user: User
 }
 
 interface NewCountryForm {

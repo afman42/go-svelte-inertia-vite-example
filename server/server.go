@@ -36,10 +36,21 @@ func (s *Server) SetupRoutes(mux *http.ServeMux, isDev bool) {
 		"/random":         s.Handler.RandomCountriesHandler,
 		"/all":            s.Handler.AllCountriesHandler,
 		"POST /countries": s.Handler.NewCountriesHandler,
+		"GET /login":      s.Handler.LoginViewHandler,
+		"POST /login":     s.Handler.Auth.LoginHandler,
+		"GET /register":   s.Handler.RegisterViewHandler,
+		"POST /register":  s.Handler.Auth.RegisterHandler,
+		"GET /logout":     s.Handler.Auth.LogoutHandler,
+		"GET /profile":    s.Handler.Auth.ProfileHandler,
 	}
 
 	for endpoint, f := range endpoints {
-		mux.Handle(endpoint, s.Inertia.Middleware(http.HandlerFunc(f)))
+		if endpoint == "POST /countries" {
+			// Apply auth middleware to protected routes
+			mux.Handle(endpoint, s.Inertia.Middleware(s.Handler.AuthMiddleware(http.HandlerFunc(f))))
+		} else {
+			mux.Handle(endpoint, s.Inertia.Middleware(http.HandlerFunc(f)))
+		}
 	}
 }
 

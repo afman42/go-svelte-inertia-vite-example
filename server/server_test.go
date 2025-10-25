@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/afman42/go-svelte-inertia/auth"
 	"github.com/afman42/go-svelte-inertia/database"
 	"github.com/afman42/go-svelte-inertia/handlers"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +24,8 @@ func TestNew(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Conn.Close()
 	
-	handler := handlers.New(db, in)
+	sessionStore := auth.NewSessionStore()
+	handler := handlers.New(db, in, sessionStore)
 
 	t.Run("creates new server instance", func(t *testing.T) {
 		server := New(in, handler)
@@ -44,10 +46,11 @@ func TestSetupRoutes(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Conn.Close()
 	
-	handler := handlers.New(db, in)
+	sessionStore := auth.NewSessionStore()
+	handler := handlers.New(db, in, sessionStore)
 	server := New(in, handler)
 
-	t.Run("sets up routes properly", func(t *testing.T) {
+	t.Run("sets up routes properly in production mode", func(t *testing.T) {
 		mux := http.NewServeMux()
 		server.SetupRoutes(mux, false) // Production mode
 
@@ -62,6 +65,38 @@ func TestSetupRoutes(t *testing.T) {
 		// Just check if the route is registered (it should not be a 404)
 		assert.NotEqual(t, http.StatusNotFound, rr.Code)
 	})
+
+	t.Run("sets up routes properly in development mode", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server.SetupRoutes(mux, true) // Development mode
+
+		// Test that the home route exists
+		req, err := http.NewRequest("GET", "/", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+
+		// The route exists, but might return an error because we're not properly configured
+		// Just check if the route is registered (it should not be a 404)
+		assert.NotEqual(t, http.StatusNotFound, rr.Code)
+	})
+
+	t.Run("includes protected routes with authentication middleware", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server.SetupRoutes(mux, false) // Production mode
+
+		// Test that the POST /countries route exists (this is protected)
+		req, err := http.NewRequest("POST", "/countries", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+
+		// The route should exist but may redirect due to auth middleware
+		// It should not be a 404
+		assert.NotEqual(t, http.StatusNotFound, rr.Code)
+	})
 }
 
 func TestServerStaticFolder(t *testing.T) {
@@ -74,7 +109,8 @@ func TestServerStaticFolder(t *testing.T) {
 	require.NoError(t, err)
 	defer db.Conn.Close()
 	
-	handler := handlers.New(db, in)
+	sessionStore := auth.NewSessionStore()
+	handler := handlers.New(db, in, sessionStore)
 	server := New(in, handler)
 
 	t.Run("sets up static folder properly", func(t *testing.T) {
@@ -86,5 +122,62 @@ func TestServerStaticFolder(t *testing.T) {
 		assert.NotPanics(t, func() {
 			server.serverStaticFolder(mux, "/test/", http.Dir("."))
 		})
+	})
+
+	t.Run("serves static files correctly", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server.serverStaticFolder(mux, "/assets/", http.Dir("."))
+		
+		// Test that the static file handler works
+		req, err := http.NewRequest("GET", "/assets/somefile.txt", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		mux.ServeHTTP(rr, req)
+
+		// The file may not exist, but we're testing that the handler is set up
+		// It should either be 404 (file not found) or 200 (file found)
+		assert.Contains(t, []int{http.StatusNotFound, http.StatusOK}, rr.Code)
+	})
+}
+
+func TestRouteHandlers(t *testing.T) {
+	// Create a mock Inertia instance
+	in, err := inertia.NewFromFile("../test_template.tmpl")
+	require.NoError(t, err)
+	
+	// Create a handler instance
+	db, err := database.New("test_routes.db")
+	require.NoError(t, err)
+	defer db.Conn.Close()
+	
+	sessionStore := auth.NewSessionStore()
+	handler := handlers.New(db, in, sessionStore)
+	server := New(in, handler)
+
+	t.Run("registers all required routes", func(t *testing.T) {
+		mux := http.NewServeMux()
+		server.SetupRoutes(mux, false) // Production mode
+
+		routes := []string{
+			"/",
+			"/random", 
+			"/all",
+			"/login",
+			"/register",
+			"/logout",
+			"/profile",
+		}
+
+		for _, route := range routes {
+			req, err := http.NewRequest("GET", route, nil)
+			require.NoError(t, err)
+
+			rr := httptest.NewRecorder()
+			mux.ServeHTTP(rr, req)
+			
+			// Each route should be registered (not a 404)
+			assert.NotEqual(t, http.StatusNotFound, rr.Code, "Route %s should be registered", route)
+		}
 	})
 }

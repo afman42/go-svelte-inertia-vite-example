@@ -30,10 +30,10 @@ func New(dbPath string) (*DB, error) {
 	return database, nil
 }
 
-// initDB creates the countries table if it doesn't exist
+// initDB creates the countries and users tables if they don't exist
 func (db *DB) initDB() error {
 	// Create the countries table if it doesn't exist
-	query := `
+	countriesQuery := `
 	CREATE TABLE IF NOT EXISTS countries (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		name TEXT NOT NULL,
@@ -41,9 +41,25 @@ func (db *DB) initDB() error {
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 	`
-	_, err := db.Conn.Exec(query)
+	_, err := db.Conn.Exec(countriesQuery)
 	if err != nil {
 		return fmt.Errorf("failed to create countries table: %w", err)
+	}
+
+	// Create the users table if it doesn't exist
+	usersQuery := `
+	CREATE TABLE IF NOT EXISTS users (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		name TEXT NOT NULL,
+		email TEXT UNIQUE NOT NULL,
+		password TEXT NOT NULL,
+		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+		updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	);
+	`
+	_, err = db.Conn.Exec(usersQuery)
+	if err != nil {
+		return fmt.Errorf("failed to create users table: %w", err)
 	}
 
 	// Add an index on created_at for better performance for the all countries query
@@ -117,6 +133,68 @@ func (db *DB) AddCountry(name, code string) error {
 	_, err := db.Conn.Exec("insert into countries (name, alpha2, created_at) values (?, ?, datetime())", name, code)
 	if err != nil {
 		return fmt.Errorf("database insert error in AddCountry: %w", err)
+	}
+
+	return nil
+}
+
+// AddUser inserts a new user into the database
+func (db *DB) AddUser(name, email, password string) error {
+	_, err := db.Conn.Exec("INSERT INTO users (name, email, password, created_at, updated_at) VALUES (?, ?, ?, datetime(), datetime())", name, email, password)
+	if err != nil {
+		return fmt.Errorf("database insert error in AddUser: %w", err)
+	}
+
+	return nil
+}
+
+// GetUserByEmail finds a user by email
+func (db *DB) GetUserByEmail(email string) (*models.User, error) {
+	row := db.Conn.QueryRow("SELECT id, name, email, password, created_at, updated_at FROM users WHERE email = ?", email)
+
+	user := &models.User{}
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user with email %s not found", email)
+		}
+		return nil, fmt.Errorf("database scan error in GetUserByEmail: %w", err)
+	}
+
+	return user, nil
+}
+
+// GetUserByID finds a user by ID
+func (db *DB) GetUserByID(id int) (*models.User, error) {
+	row := db.Conn.QueryRow("SELECT id, name, email, password, created_at, updated_at FROM users WHERE id = ?", id)
+
+	user := &models.User{}
+	err := row.Scan(&user.ID, &user.Name, &user.Email, &user.Password, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("user with ID %d not found", id)
+		}
+		return nil, fmt.Errorf("database scan error in GetUserByID: %w", err)
+	}
+
+	return user, nil
+}
+
+// UpdateUser updates a user's information
+func (db *DB) UpdateUser(id int, name, email string) error {
+	_, err := db.Conn.Exec("UPDATE users SET name = ?, email = ?, updated_at = datetime() WHERE id = ?", name, email, id)
+	if err != nil {
+		return fmt.Errorf("database update error in UpdateUser: %w", err)
+	}
+
+	return nil
+}
+
+// DeleteUser removes a user from the database
+func (db *DB) DeleteUser(id int) error {
+	_, err := db.Conn.Exec("DELETE FROM users WHERE id = ?", id)
+	if err != nil {
+		return fmt.Errorf("database delete error in DeleteUser: %w", err)
 	}
 
 	return nil
