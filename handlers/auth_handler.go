@@ -6,11 +6,11 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 
 	"github.com/afman42/go-svelte-inertia/auth"
 	"github.com/afman42/go-svelte-inertia/database"
 	"github.com/afman42/go-svelte-inertia/models"
+	"github.com/afman42/go-svelte-inertia/validation"
 	inertia "github.com/romsar/gonertia/v2"
 )
 
@@ -50,42 +50,29 @@ func (a *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Simple validation
-	errors := make(map[string][]string)
-
+	v := validation.New()
 	// Validate name
-	if strings.TrimSpace(formData.Name) == "" {
-		errors["name"] = append(errors["name"], "Name is required")
-	} else if len(strings.TrimSpace(formData.Name)) < 2 {
-		errors["name"] = append(errors["name"], "Name must be at least 2 characters")
-	}
+	v.Check(v.Required(formData.Name), "name", "Name is required")
+	v.Check(v.MinLength(formData.Name, 2), "name", "Name must be at least 2 characters")
 
 	// Validate email
-	if strings.TrimSpace(formData.Email) == "" {
-		errors["email"] = append(errors["email"], "Email is required")
-	} else if !strings.Contains(formData.Email, "@") || !strings.Contains(formData.Email, ".") {
-		// Simple email validation without regex
-		errors["email"] = append(errors["email"], "Email format is invalid")
-	}
+	v.Check(v.Required(formData.Email), "email", "Email is required")
+	v.ValidateEmail("email", formData.Email)
 
 	// Validate password
-	if formData.Password == "" {
-		errors["password"] = append(errors["password"], "Password is required")
-	} else if len(formData.Password) < 6 {
-		errors["password"] = append(errors["password"], "Password must be at least 6 characters")
-	}
+	v.Check(v.Required(formData.Password), "password", "Password is required")
+	v.Check(v.MinLength(formData.Password, 6), "password", "Password must be at least 6 characters")
 
 	// Validate password confirmation
-	if formData.PasswordConfirmation == "" {
-		errors["password_confirmation"] = append(errors["password_confirmation"], "Password confirmation is required")
-	} else if formData.Password != formData.PasswordConfirmation {
-		errors["password_confirmation"] = append(errors["password_confirmation"], "Passwords do not match")
-	}
+	v.Check(v.Required(formData.PasswordConfirmation), "password_confirmation", "Password Confirmation is required")
+	v.Check(formData.Password != formData.PasswordConfirmation, "password_confirmation", "Passwords do not match")
+	v.Check(v.MinLength(formData.PasswordConfirmation, 6), "password_confirmation", "Password Confirmation must be at least 6 characters")
 
 	props := make(inertia.Props)
-	if len(errors) > 0 {
-		// Return validation errors to the frontend
-		props["errors"] = errors
+	if !v.Valid() {
+
+		// Return validation errors to the frontend for HTML
+		props["errors"] = v.GetErrors()
 		props["old"] = formData // Include the submitted data to preserve form values
 
 		err := a.In.Render(w, r, "Auth/Register", props)
@@ -100,8 +87,10 @@ func (a *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 	// Check if user already exists
 	existingUser, _ := a.DB.GetUserByEmail(formData.Email)
 	if existingUser != nil {
-		// Return error to frontend
-		props["errors"] = map[string][]string{"email": {"User with this email already exists"}}
+
+		// Return error to frontend for HTML
+		v.AddError("email", "User with this email already exists")
+		props["errors"] = v.GetErrors()
 		props["old"] = formData
 
 		err := a.In.Render(w, r, "Auth/Register", props)
@@ -129,7 +118,7 @@ func (a *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Return success response - redirect to login
+	// Return success response - redirect to login for HTML requests
 	a.In.Redirect(w, r, "/login")
 }
 
@@ -149,26 +138,22 @@ func (a *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Simple validation
-	errors := make(map[string][]string)
+	v := validation.New()
 
 	// Validate email
-	if strings.TrimSpace(formData.Email) == "" {
-		errors["email"] = append(errors["email"], "Email is required")
-	} else if !strings.Contains(formData.Email, "@") || !strings.Contains(formData.Email, ".") {
-		// Simple email validation
-		errors["email"] = append(errors["email"], "Email format is invalid")
-	}
+	v.Check(v.Required(formData.Email), "email", "Email is required")
+	v.ValidateEmail("email", formData.Email)
+	v.Check(v.MaxLength(formData.Email, 255), "email", "Email must be at most 255 characters")
 
 	// Validate password
-	if formData.Password == "" {
-		errors["password"] = append(errors["password"], "Password is required")
-	}
+	v.Check(v.Required(formData.Password), "password", "Password is required")
+	v.Check(v.MinLength(formData.Password, 6), "password", "Password must be at least 6 characters")
+	v.Check(v.MaxLength(formData.Password, 72), "password", "Password must be at most 72 characters")
 
 	props := make(inertia.Props)
-	if len(errors) > 0 {
-		// Return validation errors to the frontend
-		props["errors"] = errors
+	if !v.Valid() {
+		// Return validation errors to the frontend for HTML
+		props["errors"] = v.GetErrors()
 		props["old"] = formData // Include the submitted data to preserve form values
 
 		err := a.In.Render(w, r, "Auth/Login", props)
@@ -183,8 +168,10 @@ func (a *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 	// Get user from the database
 	user, err := a.DB.GetUserByEmail(formData.Email)
 	if err != nil || user == nil {
-		// Return error to frontend
-		props["errors"] = map[string][]string{"email": {"Invalid email or password"}}
+
+		// Return error to frontend for HTML
+		v.AddError("email", "Invalid check email")
+		props["errors"] = v.GetErrors()
 		props["old"] = formData
 
 		err := a.In.Render(w, r, "Auth/Login", props)
@@ -198,8 +185,10 @@ func (a *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Check password
 	if !auth.CheckPasswordHash(formData.Password, user.Password) {
-		// Return error to frontend
-		props["errors"] = map[string][]string{"password": {"Invalid email or password"}}
+
+		// Return error to frontend for HTML
+		v.AddError("password", "Invalid check password")
+		props["errors"] = v.GetErrors()
 		props["old"] = formData
 
 		err := a.In.Render(w, r, "Auth/Login", props)
@@ -263,6 +252,13 @@ func (a *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // ProfileHandler handles user profile page
 func (a *AuthHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
+	// Check if user is authenticated
+	if !a.IsAuthenticated(r) {
+		// For regular HTML requests, redirect to login
+		http.Redirect(w, r, "/login", http.StatusFound) // 302 redirect
+		return
+	}
+
 	props := make(inertia.Props)
 	props = a.AddGlobalProps(r, props)
 	err := a.In.Render(w, r, "Auth/Profile", props)
@@ -306,20 +302,4 @@ func (a *AuthHandler) AuthenticatedUser(r *http.Request) *models.User {
 	}
 
 	return user
-}
-
-func (a *AuthHandler) AddGlobalProps(r *http.Request, props inertia.Props) inertia.Props {
-	// Add global user data
-	user := a.AuthenticatedUser(r)
-	if user != nil {
-		props["user"] = &models.User{
-			ID:    user.ID,
-			Name:  user.Name,
-			Email: user.Email,
-		}
-	} else {
-		props["user"] = nil
-	}
-
-	return props
 }

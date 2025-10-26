@@ -12,21 +12,21 @@ import (
 	"github.com/afman42/go-svelte-inertia/auth"
 	"github.com/afman42/go-svelte-inertia/database"
 	"github.com/afman42/go-svelte-inertia/models"
+	inertia "github.com/romsar/gonertia/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	inertia "github.com/romsar/gonertia/v2"
 )
 
 func TestNewHandler(t *testing.T) {
 	// Create a mock Inertia instance
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	// Create a database instance for testing
 	db, err := database.New("test_new.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	// Create a session store
 	sessionStore := auth.NewSessionStore()
 
@@ -45,13 +45,13 @@ func TestHomeHandler(t *testing.T) {
 	// Create a mock Inertia instance using a test template
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	// Create a handler with a mock database
 	// For tests, we'll create a temporary database
 	db, err := database.New("test_home_handler.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	// Create a session store
 	sessionStore := auth.NewSessionStore()
 
@@ -86,23 +86,35 @@ func TestHomeHandler(t *testing.T) {
 		// Check the status code
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
+
+	t.Run("handles different HTTP methods for home route", func(t *testing.T) {
+		// Test POST method
+		req, err := http.NewRequest("POST", "/", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		handler.HomeHandler(rr, req)
+
+		// For non-GET methods, should still return some response without error
+		assert.NotEqual(t, http.StatusNotFound, rr.Code)
+	})
 }
 
 func TestRandomCountriesHandler(t *testing.T) {
 	// Create a mock Inertia instance
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	// Create a temporary database for testing
 	db, err := database.New("test_random_handler.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	// Create a session store
 	sessionStore := auth.NewSessionStore()
 
 	// Add some test data
-	_, err = db.Conn.Exec("INSERT INTO countries (name, alpha2) VALUES (?, ?), (?, ?)", 
+	_, err = db.Conn.Exec("INSERT INTO countries (name, alpha2) VALUES (?, ?), (?, ?)",
 		"United States", "US", "Canada", "CA")
 	require.NoError(t, err)
 
@@ -140,23 +152,35 @@ func TestRandomCountriesHandler(t *testing.T) {
 		// Check the status code
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
+
+	t.Run("handles random countries with different HTTP methods", func(t *testing.T) {
+		// Test POST method
+		req, err := http.NewRequest("POST", "/random", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		handler.RandomCountriesHandler(rr, req)
+
+		// For non-GET methods, should still return some response without error
+		assert.NotEqual(t, http.StatusNotFound, rr.Code)
+	})
 }
 
 func TestAllCountriesHandler(t *testing.T) {
 	// Create a mock Inertia instance
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	// Create a temporary database for testing
 	db, err := database.New("test_all_handler.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	// Create a session store
 	sessionStore := auth.NewSessionStore()
 
 	// Add some test data
-	_, err = db.Conn.Exec("INSERT INTO countries (name, alpha2) VALUES (?, ?), (?, ?)", 
+	_, err = db.Conn.Exec("INSERT INTO countries (name, alpha2) VALUES (?, ?), (?, ?)",
 		"United States", "US", "Canada", "CA")
 	require.NoError(t, err)
 
@@ -194,18 +218,30 @@ func TestAllCountriesHandler(t *testing.T) {
 		// Check the status code
 		assert.Equal(t, http.StatusInternalServerError, rr.Code)
 	})
+
+	t.Run("handles all countries with different HTTP methods", func(t *testing.T) {
+		// Test POST method
+		req, err := http.NewRequest("POST", "/all", nil)
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		handler.AllCountriesHandler(rr, req)
+
+		// For non-GET methods, should still return some response without error
+		assert.NotEqual(t, http.StatusNotFound, rr.Code)
+	})
 }
 
 func TestNewCountriesHandler(t *testing.T) {
 	// Create a mock Inertia instance
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	// Create a temporary database for testing
 	db, err := database.New("test_new_handler.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	// Create a session store
 	sessionStore := auth.NewSessionStore()
 
@@ -217,7 +253,7 @@ func TestNewCountriesHandler(t *testing.T) {
 			Name: "Test Country",
 			Code: "TC",
 		}
-		
+
 		jsonData, err := json.Marshal(formData)
 		require.NoError(t, err)
 
@@ -242,7 +278,7 @@ func TestNewCountriesHandler(t *testing.T) {
 
 		// Create the full handler with proper initialization
 		testHandler := New(testDB, in, sessionStore)
-		
+
 		// Close the database connection after handler creation to cause error during insertion
 		testDB.Conn.Close()
 
@@ -251,7 +287,7 @@ func TestNewCountriesHandler(t *testing.T) {
 			Name: "Test Country",
 			Code: "TC",
 		}
-		
+
 		jsonData, err := json.Marshal(formData)
 		require.NoError(t, err)
 
@@ -302,7 +338,7 @@ func TestNewCountriesHandler(t *testing.T) {
 			Name: "",
 			Code: "TC",
 		}
-		
+
 		jsonData, err := json.Marshal(formData)
 		require.NoError(t, err)
 
@@ -331,7 +367,7 @@ func TestNewCountriesHandler(t *testing.T) {
 			Name: "Test Country",
 			Code: "",
 		}
-		
+
 		jsonData, err := json.Marshal(formData)
 		require.NoError(t, err)
 
@@ -353,13 +389,105 @@ func TestNewCountriesHandler(t *testing.T) {
 		// Check the status code - should be Unprocessable Entity
 		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
 	})
-	
+
+	t.Run("handles name with excessive length", func(t *testing.T) {
+		// Create form data with very long name (256 characters)
+		longName := "A"
+		for i := 0; i < 255; i++ {
+			longName += "A"
+		}
+		
+		formData := models.NewCountry{
+			Name: longName,
+			Code: "TC",
+		}
+
+		jsonData, err := json.Marshal(formData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/countries", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		// Add a valid session to bypass auth check
+		sessionID, err := sessionStore.CreateSession(1, "test@example.com")
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: sessionID,
+		})
+
+		rr := httptest.NewRecorder()
+		handler.NewCountriesHandler(rr, req)
+
+		// Check the status code - should be Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles code with invalid length", func(t *testing.T) {
+		// Create form data with code that is not exactly 2 characters
+		formData := models.NewCountry{
+			Name: "Test Country",
+			Code: "T", // Too short
+		}
+
+		jsonData, err := json.Marshal(formData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/countries", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		// Add a valid session to bypass auth check
+		sessionID, err := sessionStore.CreateSession(1, "test@example.com")
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: sessionID,
+		})
+
+		rr := httptest.NewRecorder()
+		handler.NewCountriesHandler(rr, req)
+
+		// Check the status code - should be Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles code with invalid format", func(t *testing.T) {
+		// Create form data with code that is not uppercase letters
+		formData := models.NewCountry{
+			Name: "Test Country",
+			Code: "12", // Not uppercase letters
+		}
+
+		jsonData, err := json.Marshal(formData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/countries", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		// Add a valid session to bypass auth check
+		sessionID, err := sessionStore.CreateSession(1, "test@example.com")
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: sessionID,
+		})
+
+		rr := httptest.NewRecorder()
+		handler.NewCountriesHandler(rr, req)
+
+		// Check the status code - should be Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
 	t.Run("successfully adds country when authenticated", func(t *testing.T) {
 		formData := models.NewCountry{
 			Name: "Test Country",
 			Code: "TC",
 		}
-		
+
 		jsonData, err := json.Marshal(formData)
 		require.NoError(t, err)
 
@@ -381,11 +509,11 @@ func TestNewCountriesHandler(t *testing.T) {
 		// Should redirect to /all after successful creation
 		assert.Equal(t, http.StatusFound, rr.Code)
 		assert.Contains(t, rr.Header().Get("Location"), "/all")
-		
+
 		// Verify the country was added to the database
 		countries, err := db.GetAllCountries()
 		require.NoError(t, err)
-		
+
 		found := false
 		for _, country := range countries {
 			if country.Name == "Test Country" {
@@ -412,12 +540,12 @@ func TestAuthMiddleware(t *testing.T) {
 	// Create a mock Inertia instance
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	// Create a temporary database for testing
 	db, err := database.New("test_auth_middleware.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	// Create a session store
 	sessionStore := auth.NewSessionStore()
 
@@ -439,6 +567,31 @@ func TestAuthMiddleware(t *testing.T) {
 		assert.Equal(t, http.StatusFound, rr.Code)
 		assert.Contains(t, rr.Header().Get("Location"), "/login")
 	})
+
+	t.Run("allows authenticated requests", func(t *testing.T) {
+		// Create a protected handler
+		protectedHandler := handler.AuthMiddleware(func(w http.ResponseWriter, r *http.Request) {
+			fmt.Fprint(w, "Protected content")
+		})
+
+		req, err := http.NewRequest("GET", "/protected", nil)
+		require.NoError(t, err)
+
+		// Add a valid session to bypass auth check
+		sessionID, err := sessionStore.CreateSession(1, "test@example.com")
+		require.NoError(t, err)
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: sessionID,
+		})
+
+		rr := httptest.NewRecorder()
+		protectedHandler(rr, req)
+
+		// Should not redirect if authenticated
+		assert.NotEqual(t, http.StatusFound, rr.Code)
+		assert.Equal(t, http.StatusOK, rr.Code) // Should return 200 OK
+	})
 }
 
 // Auth handler tests
@@ -446,11 +599,11 @@ func TestNewAuth(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	db, err := database.New("test_auth_new.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	sessionStore := auth.NewSessionStore()
 
 	t.Run("creates new auth handler instance", func(t *testing.T) {
@@ -467,7 +620,7 @@ func TestRegisterHandler(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	sessionStore := auth.NewSessionStore()
 
 	t.Run("handles user registration successfully", func(t *testing.T) {
@@ -475,16 +628,17 @@ func TestRegisterHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_register_success.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		// Create registration data
 		registerData := models.UserRegister{
-			Name:     "Test User",
-			Email:    "test@example.com",
-			Password: "securepassword123",
+			Name:                 "Test User",
+			Email:                "test@example.com",
+			Password:             "securepassword123",
+			PasswordConfirmation: "securepassword123",
 		}
-		
+
 		jsonData, err := json.Marshal(registerData)
 		require.NoError(t, err)
 
@@ -497,7 +651,7 @@ func TestRegisterHandler(t *testing.T) {
 
 		// Should return 200 status on successful registration
 		assert.Equal(t, http.StatusOK, rr.Code)
-		
+
 		// Verify user was added to the database
 		user, err := db.GetUserByEmail("test@example.com")
 		require.NoError(t, err)
@@ -511,9 +665,9 @@ func TestRegisterHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_register_invalid_json.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
-	
+
 		invalidJSON := []byte(`{"name": "Test", "email":}`) // Invalid JSON
 
 		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(invalidJSON))
@@ -532,16 +686,17 @@ func TestRegisterHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_register_existing.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		// First, register a user
 		registerData := models.UserRegister{
-			Name:     "Existing User",
-			Email:    "existing@example.com",
-			Password: "password123",
+			Name:                 "Existing User",
+			Email:                "existing@example.com",
+			Password:             "password123",
+			PasswordConfirmation: "password123",
 		}
-		
+
 		jsonData, err := json.Marshal(registerData)
 		require.NoError(t, err)
 
@@ -574,9 +729,9 @@ func TestRegisterHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_register_method.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
-	
+
 		req, err := http.NewRequest("GET", "/register", nil)
 		require.NoError(t, err)
 
@@ -586,13 +741,193 @@ func TestRegisterHandler(t *testing.T) {
 		// Should return Method Not Allowed
 		assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 	})
+
+	t.Run("handles missing name field", func(t *testing.T) {
+		db, err := database.New("test_register_missing_name.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_register_missing_name.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create registration data with missing name
+		registerData := models.UserRegister{
+			Name:                 "", // Missing name
+			Email:                "test@example.com",
+			Password:             "securepassword123",
+			PasswordConfirmation: "securepassword123",
+		}
+
+		jsonData, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.RegisterHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles missing email field", func(t *testing.T) {
+		db, err := database.New("test_register_missing_email.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_register_missing_email.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create registration data with missing email
+		registerData := models.UserRegister{
+			Name:                 "Test User",
+			Email:                "", // Missing email
+			Password:             "securepassword123",
+			PasswordConfirmation: "securepassword123",
+		}
+
+		jsonData, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.RegisterHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles invalid email format", func(t *testing.T) {
+		db, err := database.New("test_register_invalid_email.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_register_invalid_email.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create registration data with invalid email format
+		registerData := models.UserRegister{
+			Name:                 "Test User",
+			Email:                "invalid-email", // Invalid email format
+			Password:             "securepassword123",
+			PasswordConfirmation: "securepassword123",
+		}
+
+		jsonData, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.RegisterHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles missing password field", func(t *testing.T) {
+		db, err := database.New("test_register_missing_password.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_register_missing_password.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create registration data with missing password
+		registerData := models.UserRegister{
+			Name:                 "Test User",
+			Email:                "test@example.com",
+			Password:             "", // Missing password
+			PasswordConfirmation: "", // Missing password confirmation
+		}
+
+		jsonData, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.RegisterHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles short password", func(t *testing.T) {
+		db, err := database.New("test_register_short_password.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_register_short_password.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create registration data with short password
+		registerData := models.UserRegister{
+			Name:                 "Test User",
+			Email:                "test@example.com",
+			Password:             "123", // Too short
+			PasswordConfirmation: "123", // Too short
+		}
+
+		jsonData, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.RegisterHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles mismatched password confirmation", func(t *testing.T) {
+		db, err := database.New("test_register_mismatched_password.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_register_mismatched_password.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create registration data with mismatched passwords
+		registerData := models.UserRegister{
+			Name:                 "Test User",
+			Email:                "test@example.com",
+			Password:             "securepassword123",
+			PasswordConfirmation: "differentpassword", // Mismatched confirmation
+		}
+
+		jsonData, err := json.Marshal(registerData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/register", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.RegisterHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
 }
 
 func TestLoginHandler(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	sessionStore := auth.NewSessionStore()
 
 	t.Run("handles user login successfully", func(t *testing.T) {
@@ -600,7 +935,7 @@ func TestLoginHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_login_success.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		// Create a test user first
@@ -614,7 +949,7 @@ func TestLoginHandler(t *testing.T) {
 			Email:    "login@example.com",
 			Password: "password123",
 		}
-		
+
 		jsonData, err := json.Marshal(loginData)
 		require.NoError(t, err)
 
@@ -627,7 +962,7 @@ func TestLoginHandler(t *testing.T) {
 
 		// Should return OK status (Inertia redirect uses 200 status code) after successful login
 		assert.Equal(t, http.StatusOK, rr.Code)
-		
+
 		// Check that a session cookie was set
 		cookies := rr.Result().Cookies()
 		sessionCookieFound := false
@@ -645,7 +980,7 @@ func TestLoginHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_login_invalid_creds.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		// Create a test user first
@@ -659,7 +994,7 @@ func TestLoginHandler(t *testing.T) {
 			Email:    "login@example.com",
 			Password: "wrongpassword",
 		}
-		
+
 		jsonData, err := json.Marshal(loginData)
 		require.NoError(t, err)
 
@@ -668,8 +1003,8 @@ func TestLoginHandler(t *testing.T) {
 		require.NoError(t, err)
 
 		rr := httptest.NewRecorder()
-		authHandler.LoginHandler(rr, req)
 
+		authHandler.LoginHandler(rr, req)
 		// Should return unauthorized error
 		assert.Equal(t, http.StatusUnauthorized, rr.Code)
 	})
@@ -679,7 +1014,7 @@ func TestLoginHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_login_nonexistent.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		// Create login data for non-existent user
@@ -687,7 +1022,7 @@ func TestLoginHandler(t *testing.T) {
 			Email:    "nonexistent@example.com",
 			Password: "password123",
 		}
-		
+
 		jsonData, err := json.Marshal(loginData)
 		require.NoError(t, err)
 
@@ -707,7 +1042,7 @@ func TestLoginHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_login_invalid_json.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		invalidJSON := []byte(`{"email": "test@example.com", "password":}`) // Invalid JSON
@@ -728,7 +1063,7 @@ func TestLoginHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_login_method.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		req, err := http.NewRequest("GET", "/login", nil)
@@ -740,17 +1075,135 @@ func TestLoginHandler(t *testing.T) {
 		// Should return Method Not Allowed
 		assert.Equal(t, http.StatusMethodNotAllowed, rr.Code)
 	})
+
+	t.Run("handles missing email field", func(t *testing.T) {
+		db, err := database.New("test_login_missing_email.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_login_missing_email.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create login data with missing email
+		loginData := models.UserLogin{
+			Email:    "", // Missing email
+			Password: "password123",
+		}
+
+		jsonData, err := json.Marshal(loginData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.LoginHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles invalid email format", func(t *testing.T) {
+		db, err := database.New("test_login_invalid_email.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_login_invalid_email.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create login data with invalid email format
+		loginData := models.UserLogin{
+			Email:    "invalid-email", // Invalid email format
+			Password: "password123",
+		}
+
+		jsonData, err := json.Marshal(loginData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.LoginHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles missing password field", func(t *testing.T) {
+		db, err := database.New("test_login_missing_password.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_login_missing_password.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create login data with missing password
+		loginData := models.UserLogin{
+			Email:    "login@example.com",
+			Password: "", // Missing password
+		}
+
+		jsonData, err := json.Marshal(loginData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.LoginHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
+
+	t.Run("handles extra long password", func(t *testing.T) {
+		db, err := database.New("test_login_long_password.db")
+		require.NoError(t, err)
+		defer db.Conn.Close()
+		defer os.Remove("test_login_long_password.db")
+
+		authHandler := NewAuth(db, in, sessionStore)
+
+		// Create a very long password
+		longPassword := "A"
+		for i := 0; i < 255; i++ {
+			longPassword += "A"
+		}
+		
+		// Create login data with very long password
+		loginData := models.UserLogin{
+			Email:    "login@example.com",
+			Password: longPassword, // Very long password
+		}
+
+		jsonData, err := json.Marshal(loginData)
+		require.NoError(t, err)
+
+		req, err := http.NewRequest("POST", "/login", bytes.NewBuffer(jsonData))
+		req.Header.Set("Content-Type", "application/json")
+		require.NoError(t, err)
+
+		rr := httptest.NewRecorder()
+		authHandler.LoginHandler(rr, req)
+
+		// Should return Unprocessable Entity for validation error
+		assert.Equal(t, http.StatusUnprocessableEntity, rr.Code)
+	})
 }
 
 func TestLogoutHandler(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	db, err := database.New("test_logout.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	sessionStore := auth.NewSessionStore()
 	authHandler := NewAuth(db, in, sessionStore)
 
@@ -761,7 +1214,7 @@ func TestLogoutHandler(t *testing.T) {
 	t.Run("handles user logout successfully", func(t *testing.T) {
 		req, err := http.NewRequest("GET", "/logout", nil)
 		require.NoError(t, err)
-		
+
 		// Add session cookie to request
 		req.AddCookie(&http.Cookie{
 			Name:  SessionCookieName,
@@ -774,7 +1227,7 @@ func TestLogoutHandler(t *testing.T) {
 		// Should redirect to home page after logout
 		assert.Equal(t, http.StatusFound, rr.Code)
 		assert.Contains(t, rr.Header().Get("Location"), "/")
-		
+
 		// Check that the session was deleted from the store
 		_, err = sessionStore.GetSession(sessionID)
 		assert.Error(t, err)
@@ -797,7 +1250,7 @@ func TestProfileHandler(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	sessionStore := auth.NewSessionStore()
 
 	t.Run("returns profile for authenticated user", func(t *testing.T) {
@@ -805,7 +1258,7 @@ func TestProfileHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_profile_auth.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		// Create a test user
@@ -822,7 +1275,7 @@ func TestProfileHandler(t *testing.T) {
 
 		req, err := http.NewRequest("GET", "/profile", nil)
 		require.NoError(t, err)
-		
+
 		// Add session cookie to request
 		req.AddCookie(&http.Cookie{
 			Name:  SessionCookieName,
@@ -841,7 +1294,7 @@ func TestProfileHandler(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_profile_unauth.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		req, err := http.NewRequest("GET", "/profile", nil)
@@ -861,11 +1314,11 @@ func TestGetUserIDFromSession(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	db, err := database.New("test_get_user_id.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	sessionStore := auth.NewSessionStore()
 	authHandler := NewAuth(db, in, sessionStore)
 
@@ -876,7 +1329,7 @@ func TestGetUserIDFromSession(t *testing.T) {
 	t.Run("returns user ID for valid session", func(t *testing.T) {
 		req, err := http.NewRequest("GET", "/test", nil)
 		require.NoError(t, err)
-		
+
 		// Add session cookie to request
 		req.AddCookie(&http.Cookie{
 			Name:  SessionCookieName,
@@ -891,7 +1344,7 @@ func TestGetUserIDFromSession(t *testing.T) {
 	t.Run("returns 0 for invalid session", func(t *testing.T) {
 		req, err := http.NewRequest("GET", "/test", nil)
 		require.NoError(t, err)
-		
+
 		// Add invalid session cookie to request
 		req.AddCookie(&http.Cookie{
 			Name:  SessionCookieName,
@@ -912,17 +1365,47 @@ func TestGetUserIDFromSession(t *testing.T) {
 
 		assert.Equal(t, 0, userID)
 	})
+
+	t.Run("handles malformed session cookie", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/test", nil)
+		require.NoError(t, err)
+
+		// Add malformed session cookie to request
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: "", // Empty session ID
+		})
+
+		userID := authHandler.GetUserIDFromSession(req)
+
+		assert.Equal(t, 0, userID)
+	})
+
+	t.Run("handles different HTTP methods", func(t *testing.T) {
+		req, err := http.NewRequest("POST", "/test", nil)
+		require.NoError(t, err)
+
+		// Add session cookie to request
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: sessionID,
+		})
+
+		userID := authHandler.GetUserIDFromSession(req)
+
+		assert.Equal(t, 123, userID) // Should work with any HTTP method
+	})
 }
 
 func TestIsAuthenticated(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	db, err := database.New("test_is_authenticated.db")
 	require.NoError(t, err)
 	defer db.Conn.Close()
-	
+
 	sessionStore := auth.NewSessionStore()
 	authHandler := NewAuth(db, in, sessionStore)
 
@@ -933,7 +1416,7 @@ func TestIsAuthenticated(t *testing.T) {
 	t.Run("returns true for authenticated user", func(t *testing.T) {
 		req, err := http.NewRequest("GET", "/test", nil)
 		require.NoError(t, err)
-		
+
 		// Add session cookie to request
 		req.AddCookie(&http.Cookie{
 			Name:  SessionCookieName,
@@ -954,13 +1437,43 @@ func TestIsAuthenticated(t *testing.T) {
 
 		assert.False(t, isAuthenticated)
 	})
+
+	t.Run("returns false for invalid session cookie", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/test", nil)
+		require.NoError(t, err)
+
+		// Add invalid session cookie to request
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: "invalid-session-id",
+		})
+
+		isAuthenticated := authHandler.IsAuthenticated(req)
+
+		assert.False(t, isAuthenticated)
+	})
+
+	t.Run("handles empty session cookie", func(t *testing.T) {
+		req, err := http.NewRequest("GET", "/test", nil)
+		require.NoError(t, err)
+
+		// Add empty session cookie to request
+		req.AddCookie(&http.Cookie{
+			Name:  SessionCookieName,
+			Value: "", // Empty value
+		})
+
+		isAuthenticated := authHandler.IsAuthenticated(req)
+
+		assert.False(t, isAuthenticated)
+	})
 }
 
 func TestAuthenticatedUser(t *testing.T) {
 	// Create mock dependencies
 	in, err := inertia.NewFromFile("../test_template.tmpl")
 	require.NoError(t, err)
-	
+
 	sessionStore := auth.NewSessionStore()
 
 	t.Run("returns user for authenticated user", func(t *testing.T) {
@@ -968,7 +1481,7 @@ func TestAuthenticatedUser(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_auth_user_auth.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		// Create a test user first
@@ -980,14 +1493,14 @@ func TestAuthenticatedUser(t *testing.T) {
 		// Get the user to get their ID
 		user, err := db.GetUserByEmail("authuser@example.com")
 		require.NoError(t, err)
-		
+
 		// Create a session for the user
 		sessionID, err := sessionStore.CreateSession(user.ID, user.Email)
 		require.NoError(t, err)
 
 		req, err := http.NewRequest("GET", "/test", nil)
 		require.NoError(t, err)
-		
+
 		// Add session cookie to request
 		req.AddCookie(&http.Cookie{
 			Name:  SessionCookieName,
@@ -1007,7 +1520,7 @@ func TestAuthenticatedUser(t *testing.T) {
 		require.NoError(t, err)
 		defer db.Conn.Close()
 		defer os.Remove("test_auth_user_unauth.db")
-		
+
 		authHandler := NewAuth(db, in, sessionStore)
 
 		req, err := http.NewRequest("GET", "/test", nil)

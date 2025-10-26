@@ -47,7 +47,7 @@ func (s *Server) SetupRoutes(mux *http.ServeMux, isDev bool) {
 	}
 
 	for endpoint, f := range endpoints {
-		if endpoint == "POST /countries" {
+		if endpoint == "POST /countries" || endpoint == "GET /profile" {
 			// Apply auth middleware to protected routes
 			mux.Handle(endpoint, s.Inertia.Middleware(s.Handler.AuthMiddleware(http.HandlerFunc(f))))
 		} else {

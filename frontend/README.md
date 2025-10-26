@@ -45,3 +45,38 @@ If you have state that's important to retain within a component, consider creati
 import { writable } from 'svelte/store'
 export default writable(0)
 ```
+
+## Toast Notifications
+
+This project includes a toast notification system for displaying user feedback messages.
+
+### Usage
+
+1. Add the ToastContainer to your main layout to display toasts globally:
+
+```svelte
+<script lang="ts">
+  import ToastContainer from './components/ToastContainer.svelte';
+  // ... other imports
+</script>
+
+<!-- Your layout content -->
+<ToastContainer />
+```
+
+2. Use the toast store in your components:
+
+```svelte
+<script lang="ts">
+  import { toastStore } from './stores/toast';
+  
+  const handleAction = () => {
+    toastStore.success('Operation completed successfully!');
+    toastStore.error('Something went wrong', 8000); // 8 second duration
+  };
+</script>
+
+<button on:click={handleAction}>Show Toast</button>
+```
+
+For more details on using the toast system, see `src/components/ToastContainer/README.md`.

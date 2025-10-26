@@ -1,29 +1,32 @@
 <script lang="ts">
   import Layout from '../../components/Layout.svelte'
   import { useForm } from '@inertiajs/svelte'
-  import FormError from '../../components/FormError.svelte'
+  import { toastStore } from '../../stores/toast.svelte'
 
   // Get initial data from server (props) using destructuring
-  let { errors: serverErrors = {}, old = {} } = $props() as {
-    errors?: Record<string, string[]>
+  let { errors: serverErrors = [], old = {} } = $props() as {
+    errors?: { field: string; message: string }[]
     old?: Record<string, any>
   }
 
   // Initialize form with old data if available, otherwise with empty values
   const form = useForm({
-    email: (old.email as string) || '',
-    password: (old.password as string) || ''
+    email: old?.email || '',
+    password: old?.password || ''
   })
-
   function handleSubmit(e: Event) {
     e.preventDefault()
     // Submit the form with options
     $form.post('/login', {
       preserveState: true,
       onSuccess: () => {
-        // Login successful, form will automatically redirect based on server response
         $form.email = ''
         $form.password = ''
+      },
+      onError: () => {
+        serverErrors.forEach((v: { field: string; message: string }) => {
+          toastStore.error(v.message, 2000)
+        })
       }
     })
   }
@@ -44,15 +47,8 @@
           id="email"
           type="email"
           bind:value={$form.email}
-          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
-            'email'
-          ) && serverErrors.email.length > 0
-            ? 'border-red-500'
-            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-        {#if serverErrors.hasOwnProperty('email') && serverErrors.email.length > 0}
-          <FormError errors={serverErrors.email} />
-        {/if}
       </div>
 
       <div class="mb-6">
@@ -61,15 +57,8 @@
           id="password"
           type="password"
           bind:value={$form.password}
-          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
-            'password'
-          ) && serverErrors.password.length > 0
-            ? 'border-red-500'
-            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-        {#if serverErrors.hasOwnProperty('password') && serverErrors.password.length > 0}
-          <FormError errors={serverErrors.password} />
-        {/if}
       </div>
 
       <button

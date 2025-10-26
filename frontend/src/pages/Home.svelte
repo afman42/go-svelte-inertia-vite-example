@@ -1,8 +1,7 @@
 <script lang="ts">
   import Layout from '../components/Layout.svelte'
   import ErrorBoundary from '../components/ErrorBoundary.svelte'
-  import { page } from '@inertiajs/svelte'
-  let { user }: any = $page.props
+  let { user }: { user: User } = $props()
 </script>
 
 <svelte:head>

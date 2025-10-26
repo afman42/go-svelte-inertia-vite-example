@@ -1,31 +1,39 @@
 <script lang="ts">
   import Layout from '../../components/Layout.svelte'
   import { useForm, router } from '@inertiajs/svelte'
-  import FormError from '../../components/FormError.svelte'
+  import { toastStore } from '../../stores/toast.svelte'
 
   // Get initial data from server (props) using destructuring
-  let { errors: serverErrors = {}, old = {} } = $props() as {
-    errors?: Record<string, string[]>
+  let { errors: serverErrors = [], old = {} } = $props() as {
+    errors?: { field: string; message: string }[]
     old?: Record<string, any>
   }
 
   // Initialize form with old data if available, otherwise with empty values
   const form = useForm<RegisterFormData>({
-    name: (old.name as string) || '',
-    email: (old.email as string) || '',
-    password: (old.password as string) || '',
-    password_confirmation: (old.password_confirmation as string) || ''
+    name: old?.name || '',
+    email: old?.email || '',
+    password: old?.password || '',
+    password_confirmation: old?.password_confirmation || ''
   })
 
   function handleSubmit(e: Event) {
     e.preventDefault()
-
     // Submit the form with options
     $form.post('/register', {
       preserveState: true,
       onSuccess: () => {
         // Registration successful
+        $form.name = ''
+        $form.email = ''
+        $form.password = ''
+        $form.password_confirmation = ''
         router.visit('/login')
+      },
+      onError: () => {
+        serverErrors.forEach((v: { field: string; message: string }) => {
+          toastStore.error(v.message, 2000)
+        })
       }
     })
   }
@@ -46,14 +54,8 @@
           id="name"
           type="text"
           bind:value={$form.name}
-          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty('name') &&
-          serverErrors.name.length > 0
-            ? 'border-red-500'
-            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-        {#if serverErrors.hasOwnProperty('name') && serverErrors.name.length > 0}
-          <FormError errors={serverErrors.name} />
-        {/if}
       </div>
 
       <div class="mb-4">
@@ -62,15 +64,8 @@
           id="email"
           type="email"
           bind:value={$form.email}
-          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
-            'email'
-          ) && serverErrors.email.length > 0
-            ? 'border-red-500'
-            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-        {#if serverErrors.hasOwnProperty('email') && serverErrors.email.length > 0}
-          <FormError errors={serverErrors.email} />
-        {/if}
       </div>
 
       <div class="mb-4">
@@ -79,15 +74,8 @@
           id="password"
           type="password"
           bind:value={$form.password}
-          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
-            'password'
-          ) && serverErrors.password.length > 0
-            ? 'border-red-500'
-            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-        {#if serverErrors.hasOwnProperty('password') && serverErrors.password.length > 0}
-          <FormError errors={serverErrors.password} />
-        {/if}
       </div>
 
       <div class="mb-6">
@@ -98,15 +86,8 @@
           id="confirmPassword"
           type="password"
           bind:value={$form.password_confirmation}
-          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
-            'password_confirmation'
-          ) && serverErrors.password_confirmation.length > 0
-            ? 'border-red-500'
-            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
-        {#if serverErrors.hasOwnProperty('password_confirmation') && serverErrors.password_confirmation.length > 0}
-          <FormError errors={serverErrors.password_confirmation} />
-        {/if}
       </div>
 
       <button

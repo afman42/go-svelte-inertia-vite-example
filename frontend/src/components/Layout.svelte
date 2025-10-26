@@ -1,6 +1,7 @@
 <script lang="ts">
   import { Link, page, router } from '@inertiajs/svelte'
   import ConfirmModal from './ConfirmModal.svelte'
+  import ToastContainer from './ToastContainer.svelte'
   let { children } = $props()
   const url: string = $page.url
   let { user }: any = $page.props //still search types
@@ -204,6 +205,7 @@
   {@render children()}
 </main>
 
+<ToastContainer />
 <ConfirmModal
   show={showLogoutModal}
   message="Are you sure you want to log out?"

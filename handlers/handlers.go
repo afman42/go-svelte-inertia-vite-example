@@ -6,12 +6,12 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/afman42/go-svelte-inertia/auth"
 	"github.com/afman42/go-svelte-inertia/database"
 	"github.com/afman42/go-svelte-inertia/models"
+	"github.com/afman42/go-svelte-inertia/validation"
 	inertia "github.com/romsar/gonertia/v2"
 )
 
@@ -43,7 +43,7 @@ func (h *Handler) HomeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	props := make(inertia.Props)
-	props = h.AddGlobalProps(r, props)
+	props = h.Auth.AddGlobalProps(r, props)
 
 	time.Sleep(300 * time.Millisecond)
 
@@ -71,7 +71,7 @@ func (h *Handler) RandomCountriesHandler(w http.ResponseWriter, r *http.Request)
 	}
 
 	props := make(inertia.Props)
-	props = h.AddGlobalProps(r, props)
+	props = h.Auth.AddGlobalProps(r, props)
 	props["countries"] = countries
 
 	err = h.In.Render(w, r, "Countries/Random", props)
@@ -98,7 +98,7 @@ func (h *Handler) AllCountriesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	props := make(inertia.Props)
-	props = h.AddGlobalProps(r, props)
+	props = h.Auth.AddGlobalProps(r, props)
 	props["countries"] = countries
 
 	err = h.In.Render(w, r, "Countries/All", props)
@@ -133,32 +133,24 @@ func (h *Handler) NewCountriesHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Bad Request - Invalid JSON", http.StatusBadRequest)
 		return
 	}
+	v := validation.New()
 
-	// Simple validation
-	errors := make(map[string][]string)
+	// validate name
+	v.Check(v.Required(formData.Name), "name", "Name is required")
+	v.Check(v.MinLength(formData.Name, 2), "name", "Name must be at least 2 characters")
+	v.Check(v.MaxLength(formData.Name, 255), "name", "Name must be at most 255 characters")
 
-	// Validate name
-	if strings.TrimSpace(formData.Name) == "" {
-		errors["name"] = append(errors["name"], "Name is required")
-	} else if len(strings.TrimSpace(formData.Name)) < 2 {
-		errors["name"] = append(errors["name"], "Name must be at least 2 characters")
-	}
-
-	// Validate code
-	if strings.TrimSpace(formData.Code) == "" {
-		errors["code"] = append(errors["code"], "Country code is required")
-	} else if len(strings.TrimSpace(formData.Code)) != 2 {
-		errors["code"] = append(errors["code"], "Country code must be 2 characters")
-	} else if !isAlphaString(formData.Code) {
-		errors["code"] = append(errors["code"], "Country code must contain only letters")
-	}
+	// validate code
+	v.Check(v.Required(formData.Code), "code", "Country code is required")
+	v.Check(v.MinLength(formData.Code, 2), "code", "Country code must be at least 2 characters")
+	v.Check(v.MaxLength(formData.Code, 2), "code", "Country code must be exactly 2 characters")
+	v.Check(!isAlphaString(formData.Code), "code", "Country code must contain only letters")
 
 	props := make(inertia.Props)
-	props = h.AddGlobalProps(r, props)
-	if len(errors) > 0 {
-
-		// Return validation errors to the frontend
-		props["errors"] = errors
+	props = h.Auth.AddGlobalProps(r, props)
+	if !v.Valid() {
+		// Return validation errors to the frontend for HTML
+		props["errors"] = v.GetErrors()
 		countries, err := h.DB.GetAllCountries()
 		if err != nil {
 			log.Printf("Error getting all countries: %v", err)
@@ -189,10 +181,10 @@ func (h *Handler) NewCountriesHandler(w http.ResponseWriter, r *http.Request) {
 func isAlphaString(s string) bool {
 	for _, r := range s {
 		if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') {
-			return false
+			return true
 		}
 	}
-	return true
+	return false
 }
 
 // LoginViewHandler shows the login page
@@ -210,7 +202,7 @@ func (h *Handler) LoginViewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	props := make(inertia.Props)
-	props = h.AddGlobalProps(r, props)
+	props = h.Auth.AddGlobalProps(r, props)
 
 	err := h.In.Render(w, r, "Auth/Login", props)
 	if err != nil {
@@ -235,7 +227,7 @@ func (h *Handler) RegisterViewHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	props := make(inertia.Props)
-	props = h.AddGlobalProps(r, props)
+	props = h.Auth.AddGlobalProps(r, props)
 	err := h.In.Render(w, r, "Auth/Register", props)
 	if err != nil {
 		log.Printf("Error rendering Register page: %v", err)
@@ -248,26 +240,10 @@ func (h *Handler) RegisterViewHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		if !h.Auth.IsAuthenticated(r) {
-			h.In.Redirect(w, r, "/login")
+			// For regular HTML requests, use standard HTTP redirect to match test expectations
+			http.Redirect(w, r, "/login", http.StatusFound) // 302 redirect
 			return
 		}
 		next.ServeHTTP(w, r)
 	}
-}
-
-// AddGlobalProps adds global properties (like user data) to props
-func (h *Handler) AddGlobalProps(r *http.Request, props inertia.Props) inertia.Props {
-	// Add global user data
-	user := h.Auth.AuthenticatedUser(r)
-	if user != nil {
-		props["user"] = &models.User{
-			ID:    user.ID,
-			Name:  user.Name,
-			Email: user.Email,
-		}
-	} else {
-		props["user"] = nil
-	}
-
-	return props
 }
