@@ -1,3 +1,5 @@
+// Package database provides database operations for the application.
+// It handles country data, user accounts, and other database-related functionality.
 package database
 
 import (

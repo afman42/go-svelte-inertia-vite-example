@@ -41,3 +41,8 @@ interface InertiaPageProps {
   props: Record<string, any>
   component: string
 }
+
+// Form validation errors type
+interface FormErrors {
+  [key: string]: string[]
+}

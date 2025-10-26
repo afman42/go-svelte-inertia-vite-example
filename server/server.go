@@ -1,3 +1,5 @@
+// Package server provides the HTTP server implementation for the application.
+// It sets up routes, middleware, and handles the server lifecycle.
 package server
 
 import (

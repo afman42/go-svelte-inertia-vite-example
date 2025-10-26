@@ -22,7 +22,7 @@ func main() {
 	viteFragment, err := vite.HTMLFragment(vite.Config{
 		FS:           os.DirFS("frontend/dist"),
 		IsDev:        *isDev,
-		ViteURL:      "http://localhost:5174",
+		ViteURL:      "http://localhost:5173",
 		ViteEntry:    "src/main.ts",
 		ViteTemplate: 14,
 	})
@@ -51,11 +51,11 @@ func main() {
 	// Initialize session store
 	sessionStore := auth.NewSessionStore()
 
-	// Initialize handlers
-	handler := handlers.New(db, in, sessionStore)
+	// Initialize handlers (this will use the interface)
+	handler := handlers.New(db, in, sessionStore) // This will work with the interface
 
-	// Initialize server
-	srv := server.New(in, handler)
+	// Initialize server (this will be updated to use InertiaMiddleware)
+	srv := server.New(in, handler) // This will create the middleware internally
 
 	// Setup HTTP multiplexer
 	mux := http.NewServeMux()

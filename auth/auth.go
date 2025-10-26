@@ -1,3 +1,5 @@
+// Package auth provides authentication and session management functionality.
+// It includes password hashing, session store management, and user authentication utilities.
 package auth
 
 import (

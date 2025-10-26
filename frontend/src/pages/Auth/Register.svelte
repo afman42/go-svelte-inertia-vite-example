@@ -1,42 +1,31 @@
 <script lang="ts">
   import Layout from '../../components/Layout.svelte'
   import { useForm, router } from '@inertiajs/svelte'
+  import FormError from '../../components/FormError.svelte'
 
+  // Get initial data from server (props) using destructuring
+  let { errors: serverErrors = {}, old = {} } = $props() as {
+    errors?: Record<string, string[]>
+    old?: Record<string, any>
+  }
+
+  // Initialize form with old data if available, otherwise with empty values
   const form = useForm<RegisterFormData>({
-    name: '',
-    email: '',
-    password: '',
-    password_confirmation: '' // Using snake_case to match backend expectations
+    name: (old.name as string) || '',
+    email: (old.email as string) || '',
+    password: (old.password as string) || '',
+    password_confirmation: (old.password_confirmation as string) || ''
   })
 
   function handleSubmit(e: Event) {
     e.preventDefault()
 
-    // Basic validation for password confirmation - access form data function
-    if ($form.password !== $form.password_confirmation) {
-      // Since we don't have a field-specific error for confirmation, we'll
-      // set a general error or handle via backend
-      $form.setError('password_confirmation', 'Passwords do not match')
-      return
-    }
-
-    if ($form.password.length < 6) {
-      $form.setError('password', 'Password must be at least 6 characters')
-      return
-    }
-
+    // Submit the form with options
     $form.post('/register', {
+      preserveState: true,
       onSuccess: () => {
         // Registration successful
-        $form.email = ''
-        $form.password = ''
-        $form.name = ''
-        $form.password_confirmation = ''
         router.visit('/login')
-      },
-      onError: (errors) => {
-        // Errors are automatically handled by Inertia and available in form.errors
-        console.log('Registration errors:', errors)
       }
     })
   }
@@ -50,12 +39,6 @@
   <div class="max-w-md mx-auto mt-10 p-6 bg-white rounded-lg shadow-md">
     <h1 class="text-2xl font-bold mb-6">Create Account</h1>
 
-    {#if $form.errors.name || $form.errors.email || $form.errors.password}
-      <div class="mb-4 p-3 bg-red-100 text-red-700 rounded">
-        {$form.errors.name || $form.errors.email || $form.errors.password}
-      </div>
-    {/if}
-
     <form onsubmit={handleSubmit}>
       <div class="mb-4">
         <label for="name" class="block text-gray-700 mb-2">Full Name</label>
@@ -63,9 +46,14 @@
           id="name"
           type="text"
           bind:value={$form.name}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          required
+          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty('name') &&
+          serverErrors.name.length > 0
+            ? 'border-red-500'
+            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {#if serverErrors.hasOwnProperty('name') && serverErrors.name.length > 0}
+          <FormError errors={serverErrors.name} />
+        {/if}
       </div>
 
       <div class="mb-4">
@@ -74,9 +62,15 @@
           id="email"
           type="email"
           bind:value={$form.email}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          required
+          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
+            'email'
+          ) && serverErrors.email.length > 0
+            ? 'border-red-500'
+            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {#if serverErrors.hasOwnProperty('email') && serverErrors.email.length > 0}
+          <FormError errors={serverErrors.email} />
+        {/if}
       </div>
 
       <div class="mb-4">
@@ -85,9 +79,15 @@
           id="password"
           type="password"
           bind:value={$form.password}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          required
+          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
+            'password'
+          ) && serverErrors.password.length > 0
+            ? 'border-red-500'
+            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {#if serverErrors.hasOwnProperty('password') && serverErrors.password.length > 0}
+          <FormError errors={serverErrors.password} />
+        {/if}
       </div>
 
       <div class="mb-6">
@@ -98,14 +98,20 @@
           id="confirmPassword"
           type="password"
           bind:value={$form.password_confirmation}
-          class="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
-          required
+          class="w-full px-3 py-2 border {serverErrors.hasOwnProperty(
+            'password_confirmation'
+          ) && serverErrors.password_confirmation.length > 0
+            ? 'border-red-500'
+            : 'border-gray-300'} rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
         />
+        {#if serverErrors.hasOwnProperty('password_confirmation') && serverErrors.password_confirmation.length > 0}
+          <FormError errors={serverErrors.password_confirmation} />
+        {/if}
       </div>
 
       <button
         type="submit"
-        class="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2"
+        class="w-full bg-purple-600 text-white py-2 px-4 rounded-md hover:bg-purple-700 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-2 disabled:opacity-50"
         disabled={$form.processing}
       >
         {$form.processing ? 'Creating Account...' : 'Register'}

@@ -1,3 +1,5 @@
+// Package models provides data models for the application.
+// It includes user, country, and other business object definitions.
 package models
 
 import "time"
@@ -32,7 +34,8 @@ type UserLogin struct {
 
 // UserRegister represents registration form data
 type UserRegister struct {
-	Name     string `json:"name"`
-	Email    string `json:"email"`
-	Password string `json:"password"`
+	Name                 string `json:"name"`
+	Email                string `json:"email"`
+	Password             string `json:"password"`
+	PasswordConfirmation string `json:"password_confirmation"`
 }

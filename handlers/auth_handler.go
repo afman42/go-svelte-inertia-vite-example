@@ -1,9 +1,12 @@
+// Package handlers provides HTTP handlers for the application routes.
+// It includes handlers for authentication, user management, and data operations.
 package handlers
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/afman42/go-svelte-inertia/auth"
 	"github.com/afman42/go-svelte-inertia/database"
@@ -47,10 +50,66 @@ func (a *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Simple validation
+	errors := make(map[string][]string)
+
+	// Validate name
+	if strings.TrimSpace(formData.Name) == "" {
+		errors["name"] = append(errors["name"], "Name is required")
+	} else if len(strings.TrimSpace(formData.Name)) < 2 {
+		errors["name"] = append(errors["name"], "Name must be at least 2 characters")
+	}
+
+	// Validate email
+	if strings.TrimSpace(formData.Email) == "" {
+		errors["email"] = append(errors["email"], "Email is required")
+	} else if !strings.Contains(formData.Email, "@") || !strings.Contains(formData.Email, ".") {
+		// Simple email validation without regex
+		errors["email"] = append(errors["email"], "Email format is invalid")
+	}
+
+	// Validate password
+	if formData.Password == "" {
+		errors["password"] = append(errors["password"], "Password is required")
+	} else if len(formData.Password) < 6 {
+		errors["password"] = append(errors["password"], "Password must be at least 6 characters")
+	}
+
+	// Validate password confirmation
+	if formData.PasswordConfirmation == "" {
+		errors["password_confirmation"] = append(errors["password_confirmation"], "Password confirmation is required")
+	} else if formData.Password != formData.PasswordConfirmation {
+		errors["password_confirmation"] = append(errors["password_confirmation"], "Passwords do not match")
+	}
+
+	props := make(inertia.Props)
+	if len(errors) > 0 {
+		// Return validation errors to the frontend
+		props["errors"] = errors
+		props["old"] = formData // Include the submitted data to preserve form values
+
+		err := a.In.Render(w, r, "Auth/Register", props)
+		if err != nil {
+			log.Printf("Error rendering Register page with errors: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
 	// Check if user already exists
 	existingUser, _ := a.DB.GetUserByEmail(formData.Email)
 	if existingUser != nil {
-		http.Error(w, "User with this email already exists", http.StatusConflict)
+		// Return error to frontend
+		props["errors"] = map[string][]string{"email": {"User with this email already exists"}}
+		props["old"] = formData
+
+		err := a.In.Render(w, r, "Auth/Register", props)
+		if err != nil {
+			log.Printf("Error rendering Register page with duplicate email error: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
@@ -69,6 +128,9 @@ func (a *AuthHandler) RegisterHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+
+	// Return success response - redirect to login
+	a.In.Redirect(w, r, "/login")
 }
 
 // LoginHandler handles user login
@@ -87,16 +149,65 @@ func (a *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Simple validation
+	errors := make(map[string][]string)
+
+	// Validate email
+	if strings.TrimSpace(formData.Email) == "" {
+		errors["email"] = append(errors["email"], "Email is required")
+	} else if !strings.Contains(formData.Email, "@") || !strings.Contains(formData.Email, ".") {
+		// Simple email validation
+		errors["email"] = append(errors["email"], "Email format is invalid")
+	}
+
+	// Validate password
+	if formData.Password == "" {
+		errors["password"] = append(errors["password"], "Password is required")
+	}
+
+	props := make(inertia.Props)
+	if len(errors) > 0 {
+		// Return validation errors to the frontend
+		props["errors"] = errors
+		props["old"] = formData // Include the submitted data to preserve form values
+
+		err := a.In.Render(w, r, "Auth/Login", props)
+		if err != nil {
+			log.Printf("Error rendering Login page with errors: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		return
+	}
+
 	// Get user from the database
 	user, err := a.DB.GetUserByEmail(formData.Email)
-	if err != nil {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+	if err != nil || user == nil {
+		// Return error to frontend
+		props["errors"] = map[string][]string{"email": {"Invalid email or password"}}
+		props["old"] = formData
+
+		err := a.In.Render(w, r, "Auth/Login", props)
+		if err != nil {
+			log.Printf("Error rendering Login page with invalid credentials error: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
 	// Check password
 	if !auth.CheckPasswordHash(formData.Password, user.Password) {
-		http.Error(w, "Invalid email or password", http.StatusUnauthorized)
+		// Return error to frontend
+		props["errors"] = map[string][]string{"password": {"Invalid email or password"}}
+		props["old"] = formData
+
+		err := a.In.Render(w, r, "Auth/Login", props)
+		if err != nil {
+			log.Printf("Error rendering Login page with invalid password error: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
@@ -118,16 +229,6 @@ func (a *AuthHandler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		SameSite: http.SameSiteStrictMode,
 		MaxAge:   86400, // 24 hours
 	})
-
-	// Return success response
-	// resp := map[string]interface{}{
-	// 	"success": true,
-	// 	"user": map[string]interface{}{
-	// 		"id":    user.ID,
-	// 		"name":  user.Name,
-	// 		"email": user.Email,
-	// 	},
-	// }
 
 	a.In.Redirect(w, r, "GET /", http.StatusOK)
 }
@@ -162,26 +263,9 @@ func (a *AuthHandler) LogoutHandler(w http.ResponseWriter, r *http.Request) {
 
 // ProfileHandler handles user profile page
 func (a *AuthHandler) ProfileHandler(w http.ResponseWriter, r *http.Request) {
-	userID := a.GetUserIDFromSession(r)
-	if userID == 0 {
-		a.In.Redirect(w, r, "/login")
-		return
-	}
-
-	user, err := a.DB.GetUserByID(userID)
-	if err != nil {
-		log.Printf("Error getting user by ID: %v", err)
-		a.In.Redirect(w, r, "/login")
-		return
-	}
-
-	err = a.In.Render(w, r, "Auth/Profile", inertia.Props{
-		"user": map[string]interface{}{
-			"id":    user.ID,
-			"name":  user.Name,
-			"email": user.Email,
-		},
-	})
+	props := make(inertia.Props)
+	props = a.AddGlobalProps(r, props)
+	err := a.In.Render(w, r, "Auth/Profile", props)
 	if err != nil {
 		log.Printf("Error rendering profile page: %v", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -222,4 +306,20 @@ func (a *AuthHandler) AuthenticatedUser(r *http.Request) *models.User {
 	}
 
 	return user
+}
+
+func (a *AuthHandler) AddGlobalProps(r *http.Request, props inertia.Props) inertia.Props {
+	// Add global user data
+	user := a.AuthenticatedUser(r)
+	if user != nil {
+		props["user"] = &models.User{
+			ID:    user.ID,
+			Name:  user.Name,
+			Email: user.Email,
+		}
+	} else {
+		props["user"] = nil
+	}
+
+	return props
 }

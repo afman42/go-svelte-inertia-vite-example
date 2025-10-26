@@ -1,9 +1,12 @@
+// Package handlers provides HTTP handlers for the application routes.
+// It includes handlers for authentication, user management, and data operations.
 package handlers
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/afman42/go-svelte-inertia/auth"
@@ -39,24 +42,11 @@ func (h *Handler) HomeHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get authenticated user if available
-	var user *models.User
-	authUser := h.Auth.AuthenticatedUser(r)
-	if authUser != nil {
-		user = &models.User{
-			ID:    authUser.ID,
-			Name:  authUser.Name,
-			Email: authUser.Email,
-		}
-	}
+	props := make(inertia.Props)
+	props = h.AddGlobalProps(r, props)
 
 	time.Sleep(300 * time.Millisecond)
-	props := make(inertia.Props)
-	if user != nil {
-		props["user"] = user
-	} else {
-		props["user"] = nil
-	}
+
 	err := h.In.Render(w, r, "Home", props)
 	if err != nil {
 		log.Printf("Error rendering Home page: %v", err)
@@ -80,20 +70,9 @@ func (h *Handler) RandomCountriesHandler(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Get authenticated user if available
-	authUser := h.Auth.AuthenticatedUser(r)
-	props := inertia.Props{
-		"countries": countries,
-	}
-	if authUser != nil {
-		props["user"] = &models.User{
-			ID:    authUser.ID,
-			Name:  authUser.Name,
-			Email: authUser.Email,
-		}
-	} else {
-		props["user"] = nil
-	}
+	props := make(inertia.Props)
+	props = h.AddGlobalProps(r, props)
+	props["countries"] = countries
 
 	err = h.In.Render(w, r, "Countries/Random", props)
 	if err != nil {
@@ -118,20 +97,9 @@ func (h *Handler) AllCountriesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get authenticated user if available
-	authUser := h.Auth.AuthenticatedUser(r)
-	props := inertia.Props{
-		"countries": countries,
-	}
-	if authUser != nil {
-		props["user"] = &models.User{
-			ID:    authUser.ID,
-			Name:  authUser.Name,
-			Email: authUser.Email,
-		}
-	} else {
-		props["user"] = nil
-	}
+	props := make(inertia.Props)
+	props = h.AddGlobalProps(r, props)
+	props["countries"] = countries
 
 	err = h.In.Render(w, r, "Countries/All", props)
 	if err != nil {
@@ -166,13 +134,44 @@ func (h *Handler) NewCountriesHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if formData.Name == "" {
-		http.Error(w, "Bad Request - Invalid Name", http.StatusUnprocessableEntity)
-		return
+	// Simple validation
+	errors := make(map[string][]string)
+
+	// Validate name
+	if strings.TrimSpace(formData.Name) == "" {
+		errors["name"] = append(errors["name"], "Name is required")
+	} else if len(strings.TrimSpace(formData.Name)) < 2 {
+		errors["name"] = append(errors["name"], "Name must be at least 2 characters")
 	}
 
-	if formData.Code == "" {
-		http.Error(w, "Bad Request - Invalid Code", http.StatusUnprocessableEntity)
+	// Validate code
+	if strings.TrimSpace(formData.Code) == "" {
+		errors["code"] = append(errors["code"], "Country code is required")
+	} else if len(strings.TrimSpace(formData.Code)) != 2 {
+		errors["code"] = append(errors["code"], "Country code must be 2 characters")
+	} else if !isAlphaString(formData.Code) {
+		errors["code"] = append(errors["code"], "Country code must contain only letters")
+	}
+
+	props := make(inertia.Props)
+	props = h.AddGlobalProps(r, props)
+	if len(errors) > 0 {
+
+		// Return validation errors to the frontend
+		props["errors"] = errors
+		countries, err := h.DB.GetAllCountries()
+		if err != nil {
+			log.Printf("Error getting all countries: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+		props["countries"] = countries
+		err = h.In.Render(w, r, "Countries/All", props)
+		if err != nil {
+			log.Printf("Error rendering Countries/All page with errors: %v", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		return
 	}
 
@@ -184,6 +183,16 @@ func (h *Handler) NewCountriesHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	h.In.Redirect(w, r, "/all")
+}
+
+// isAlphaString checks if a string contains only alphabetic characters
+func isAlphaString(s string) bool {
+	for _, r := range s {
+		if (r < 'A' || r > 'Z') && (r < 'a' || r > 'z') {
+			return false
+		}
+	}
+	return true
 }
 
 // LoginViewHandler shows the login page
@@ -200,18 +209,8 @@ func (h *Handler) LoginViewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get authenticated user if available (should be nil but just in case)
-	authUser := h.Auth.AuthenticatedUser(r)
-	props := inertia.Props{}
-	if authUser != nil {
-		props["user"] = &models.User{
-			ID:    authUser.ID,
-			Name:  authUser.Name,
-			Email: authUser.Email,
-		}
-	} else {
-		props["user"] = nil
-	}
+	props := make(inertia.Props)
+	props = h.AddGlobalProps(r, props)
 
 	err := h.In.Render(w, r, "Auth/Login", props)
 	if err != nil {
@@ -235,19 +234,8 @@ func (h *Handler) RegisterViewHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Get authenticated user if available (should be nil but just in case)
-	authUser := h.Auth.AuthenticatedUser(r)
-	props := inertia.Props{}
-	if authUser != nil {
-		props["user"] = &models.User{
-			ID:    authUser.ID,
-			Name:  authUser.Name,
-			Email: authUser.Email,
-		}
-	} else {
-		props["user"] = nil
-	}
-
+	props := make(inertia.Props)
+	props = h.AddGlobalProps(r, props)
 	err := h.In.Render(w, r, "Auth/Register", props)
 	if err != nil {
 		log.Printf("Error rendering Register page: %v", err)
@@ -265,4 +253,21 @@ func (h *Handler) AuthMiddleware(next http.HandlerFunc) http.HandlerFunc {
 		}
 		next.ServeHTTP(w, r)
 	}
+}
+
+// AddGlobalProps adds global properties (like user data) to props
+func (h *Handler) AddGlobalProps(r *http.Request, props inertia.Props) inertia.Props {
+	// Add global user data
+	user := h.Auth.AuthenticatedUser(r)
+	if user != nil {
+		props["user"] = &models.User{
+			ID:    user.ID,
+			Name:  user.Name,
+			Email: user.Email,
+		}
+	} else {
+		props["user"] = nil
+	}
+
+	return props
 }
